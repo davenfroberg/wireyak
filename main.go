@@ -37,13 +37,13 @@ func main() {
 	}
 }
 
-func getMacAddr() (string, error) {
+func getMacAddr() (net.HardwareAddr, error) {
 	inf, err := net.InterfaceByName(INTERFACE)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if inf.HardwareAddr == nil {
-		return "", errors.New("No MAC address associated with interface")
+		return nil, errors.New("No MAC address associated with interface")
 	}
-	return inf.HardwareAddr.String(), nil
+	return inf.HardwareAddr, nil
 }
