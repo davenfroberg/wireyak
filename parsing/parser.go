@@ -11,9 +11,10 @@ type LayerHandler func(l gopacket.Layer, m *metrics.Metrics)
 type Parser struct {
 	Metrics  *metrics.Metrics
 	Handlers map[gopacket.LayerType]LayerHandler
+	LocalMac string
 }
 
-func NewParser(m *metrics.Metrics) *Parser {
+func NewParser(mac string, m *metrics.Metrics) *Parser {
 	return &Parser{
 		Metrics: m,
 		Handlers: map[gopacket.LayerType]LayerHandler{
@@ -21,6 +22,7 @@ func NewParser(m *metrics.Metrics) *Parser {
 			layers.LayerTypeIPv6: parseV6Layer,
 			layers.LayerTypeDNS:  parseDnsLayer,
 		},
+		LocalMac: mac,
 	}
 }
 

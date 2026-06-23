@@ -6,17 +6,25 @@ import (
 )
 
 type Metrics struct {
-	PacketTotals *prometheus.CounterVec
+	PacketCount      *prometheus.CounterVec
+	BytesTransmitted *prometheus.CounterVec
 }
 
 func NewMetrics(reg prometheus.Registerer) *Metrics {
 	m := &Metrics{
-		PacketTotals: promauto.With(reg).NewCounterVec(
+		PacketCount: promauto.With(reg).NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "packet_count",
 				Help: "Number of packets seen",
 			},
 			[]string{"protocol"},
+		),
+		BytesTransmitted: promauto.With(reg).NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "bytes_transmitted",
+				Help: "Number of bytes transmitted",
+			},
+			[]string{"protocol", "direction"},
 		),
 	}
 	return m

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"net"
 	"net/http"
 
 	"github.com/davenfroberg/wireyak/metrics"
@@ -11,6 +13,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+const INTERFACE = "en0"
+
 func main() {
 	reg := prometheus.NewRegistry()
 	metrics := metrics.NewMetrics(reg)
@@ -18,14 +22,28 @@ func main() {
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
 	go http.ListenAndServe(":2112", nil) // open metrics endpoint for Prometheus to poll
 
-	// start packet capture
-	if handle, err := pcap.OpenLive("en0", 3200, true, pcap.BlockForever); err != nil {
+	myMac, err := getMacAddr()
+
+	if err != nil {
+		panic(err)
+	} else if handle, err := pcap.OpenLive(INTERFACE, 3200, true, pcap.BlockForever); err != nil {
 		panic(err)
 	} else {
-		parser := parsing.NewParser(metrics)
+		parser := parsing.NewParser(myMac, metrics)
 		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 		for packet := range packetSource.Packets() {
 			parser.ParsePacket(packet)
 		}
 	}
+}
+
+func getMacAddr() (string, error) {
+	inf, err := net.InterfaceByName(INTERFACE)
+	if err != nil {
+		return "", err
+	}
+	if inf.HardwareAddr == nil {
+		return "", errors.New("No MAC address associated with interface")
+	}
+	return inf.HardwareAddr.String(), nil
 }
