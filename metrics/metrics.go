@@ -17,14 +17,14 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 				Name: "packet_count",
 				Help: "Number of packets seen",
 			},
-			[]string{"protocol", "direction"},
+			[]string{"direction", "network", "transport", "application"},
 		),
 		BytesTransmitted: promauto.With(reg).NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "bytes_transmitted",
 				Help: "Number of bytes transmitted",
 			},
-			[]string{"protocol", "direction"},
+			[]string{"direction", "network", "transport", "application"},
 		),
 	}
 	return m

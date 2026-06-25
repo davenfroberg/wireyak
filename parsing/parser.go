@@ -3,41 +3,81 @@ package parsing
 import (
 	"bytes"
 	"net"
+	"strings"
 
 	"github.com/davenfroberg/wireyak/metrics"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 )
 
-type LayerHandler func(l gopacket.Layer, m *metrics.Metrics, isOutgoing bool)
-
 type Parser struct {
 	Metrics  *metrics.Metrics
-	Handlers map[gopacket.LayerType]LayerHandler
 	LocalMAC net.HardwareAddr
 }
 
 func NewParser(mac net.HardwareAddr, m *metrics.Metrics) *Parser {
 	return &Parser{
-		Metrics: m,
-		Handlers: map[gopacket.LayerType]LayerHandler{
-			layers.LayerTypeIPv4: parseV4Layer,
-			layers.LayerTypeIPv6: parseV6Layer,
-			layers.LayerTypeDNS:  parseDnsLayer,
-		},
+		Metrics:  m,
 		LocalMAC: mac,
 	}
 }
 
 func (p *Parser) ParsePacket(packet gopacket.Packet) {
-	isOutgoing := isOutgoing(packet, p.LocalMAC)
+	packetTags := getPacketTags(packet, p.LocalMAC)
+	p.Metrics.PacketCount.WithLabelValues(packetTags...).Inc()
+}
 
-	for _, layer := range packet.Layers() {
-		handler, ok := p.Handlers[layer.LayerType()]
-		if ok {
-			handler(layer, p.Metrics, isOutgoing)
-		}
+func getPacketTags(packet gopacket.Packet, localMAC net.HardwareAddr) []string {
+	// tag 1: Direction
+	directionTag := "rx"
+	if isOutgoing(packet, localMAC) {
+		directionTag = "tx"
 	}
+
+	// tag 2: network layer
+	networkTag := "none"
+	if networkLayer := packet.NetworkLayer(); networkLayer != nil {
+		networkTag = strings.ToLower(networkLayer.LayerType().String())
+	}
+
+	// tag 3/4: transport layer + application layer
+	transportTag := "none"
+	applicationTag := "none"
+	if transportLayer := packet.TransportLayer(); transportLayer != nil {
+		transportTag = strings.ToLower(transportLayer.LayerType().String())
+		applicationTag = getApplicationLabel(transportLayer)
+	}
+	if applicationTag == "https" && transportTag == "udp" {
+		applicationTag = "quic"
+	}
+
+	return []string{directionTag, networkTag, transportTag, applicationTag}
+}
+
+func getApplicationLabel(transportLayer gopacket.Layer) string {
+	// dns, http, https, anything else?
+	srcPort := uint16(0)
+	dstPort := uint16(0)
+
+	if tcp, ok := transportLayer.(*layers.TCP); ok {
+		srcPort = uint16(tcp.SrcPort)
+		dstPort = uint16(tcp.DstPort)
+	} else if udp, ok := transportLayer.(*layers.UDP); ok {
+		srcPort = uint16(udp.SrcPort)
+		dstPort = uint16(udp.DstPort)
+	} else {
+		return "unknown"
+	}
+
+	if srcPort == 53 || dstPort == 53 {
+		return "dns"
+	} else if srcPort == 80 || dstPort == 80 {
+		return "http"
+	} else if srcPort == 443 || dstPort == 443 {
+		return "https"
+	}
+
+	return "none"
 }
 
 func isOutgoing(packet gopacket.Packet, localMAC net.HardwareAddr) bool {
