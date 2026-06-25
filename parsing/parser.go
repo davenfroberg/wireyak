@@ -24,10 +24,10 @@ func NewParser(mac net.HardwareAddr, m *metrics.Metrics) *Parser {
 
 func (p *Parser) ParsePacket(packet gopacket.Packet) {
 	packetTags := getPacketTags(packet, p.LocalMAC)
-	p.Metrics.PacketCount.WithLabelValues(packetTags...).Inc()
+	p.Metrics.IncPacket(packetTags)
 }
 
-func getPacketTags(packet gopacket.Packet, localMAC net.HardwareAddr) []string {
+func getPacketTags(packet gopacket.Packet, localMAC net.HardwareAddr) metrics.PacketTags {
 	// tag 1: Direction
 	directionTag := "rx"
 	if isOutgoing(packet, localMAC) {
@@ -51,7 +51,12 @@ func getPacketTags(packet gopacket.Packet, localMAC net.HardwareAddr) []string {
 		applicationTag = "quic"
 	}
 
-	return []string{directionTag, networkTag, transportTag, applicationTag}
+	return metrics.PacketTags{
+		Direction:   directionTag,
+		Network:     networkTag,
+		Transport:   transportTag,
+		Application: applicationTag,
+	}
 }
 
 func getApplicationLabel(transportLayer gopacket.Layer) string {

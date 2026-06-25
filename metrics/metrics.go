@@ -10,6 +10,13 @@ type Metrics struct {
 	BytesTransmitted *prometheus.CounterVec
 }
 
+type PacketTags struct {
+	Direction   string
+	Network     string
+	Transport   string
+	Application string
+}
+
 func NewMetrics(reg prometheus.Registerer) *Metrics {
 	m := &Metrics{
 		PacketCount: promauto.With(reg).NewCounterVec(
@@ -28,4 +35,14 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 		),
 	}
 	return m
+}
+
+func (m *Metrics) IncPacket(tags PacketTags) {
+	// this order should match the order in metric definition
+	m.PacketCount.WithLabelValues(
+		tags.Direction,
+		tags.Network,
+		tags.Transport,
+		tags.Application,
+	).Inc()
 }
