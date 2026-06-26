@@ -8,6 +8,7 @@ import (
 type Metrics struct {
 	PacketCount      *prometheus.CounterVec
 	BytesTransmitted *prometheus.CounterVec
+	ProcessCount     prometheus.Gauge
 }
 
 type PacketTags struct {
@@ -33,6 +34,12 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 			},
 			[]string{"direction", "network", "transport", "application"},
 		),
+		ProcessCount: promauto.With(reg).NewGauge(
+			prometheus.GaugeOpts{
+				Name: "process_count",
+				Help: "Number of processes currently running",
+			},
+		),
 	}
 	return m
 }
@@ -45,4 +52,13 @@ func (m *Metrics) IncPacket(tags PacketTags) {
 		tags.Transport,
 		tags.Application,
 	).Inc()
+}
+
+func (m *Metrics) AddBytesTransmitted(tags PacketTags, size int) {
+	m.BytesTransmitted.WithLabelValues(
+		tags.Direction,
+		tags.Network,
+		tags.Transport,
+		tags.Application,
+	).Add(float64(size))
 }

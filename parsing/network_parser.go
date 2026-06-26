@@ -10,21 +10,22 @@ import (
 	"github.com/google/gopacket/layers"
 )
 
-type Parser struct {
+type PacketParser struct {
 	Metrics  *metrics.Metrics
 	LocalMAC net.HardwareAddr
 }
 
-func NewParser(mac net.HardwareAddr, m *metrics.Metrics) *Parser {
-	return &Parser{
+func NewPacketParser(mac net.HardwareAddr, m *metrics.Metrics) *PacketParser {
+	return &PacketParser{
 		Metrics:  m,
 		LocalMAC: mac,
 	}
 }
 
-func (p *Parser) ParsePacket(packet gopacket.Packet) {
+func (p *PacketParser) ParsePacket(packet gopacket.Packet) {
 	packetTags := getPacketTags(packet, p.LocalMAC)
 	p.Metrics.IncPacket(packetTags)
+	p.Metrics.AddBytesTransmitted(packetTags, packet.Metadata().Length)
 }
 
 func getPacketTags(packet gopacket.Packet, localMAC net.HardwareAddr) metrics.PacketTags {
